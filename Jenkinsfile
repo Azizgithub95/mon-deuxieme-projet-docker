@@ -29,7 +29,7 @@ pipeline {
 
     post {
         always {
-            echo '✅ Pipeline finished. Archiving results...'
+            echo '✅ Pipeline finished. Archiving of results...'
             archiveArtifacts artifacts: '**/*.html', allowEmptyArchive: true
         }
     }
