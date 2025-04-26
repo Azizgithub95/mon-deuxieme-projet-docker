@@ -3,8 +3,12 @@
 	"image": "mcr.microsoft.com/devcontainers/javascript-node:18",
 	"features": {
 	  "ghcr.io/dhoeric/features/k6:1": {},
-	  "ghcr.io/schlich/devcontainer-features/cypress:1": {}
+	  "ghcr.io/schlich/devcontainer-features/cypress:1": {},
+	  "ghcr.io/devcontainers/features/node:1": {
+		"version": "18"
+	  }
 	},
-	"remoteUser": "root"
+	"remoteUser": "root",
+	"postCreateCommand": "npm install -g newman newman-reporter-htmlextra"
   }
   
