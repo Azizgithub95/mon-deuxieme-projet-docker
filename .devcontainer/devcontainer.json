@@ -1,0 +1,10 @@
+{
+	"name": "Test DevContainer",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+	"features": {
+	  "ghcr.io/dhoeric/features/k6:1": {},
+	  "ghcr.io/schlich/devcontainer-features/cypress:1": {}
+	},
+	"remoteUser": "root"
+  }
+  
