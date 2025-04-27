@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   jenkins:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: jenkins/jenkins:lts-jdk17
     container_name: jenkins
     user: root
     ports:
@@ -12,22 +10,30 @@ services:
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock  # 🔥 accès au Docker de l'hôte
+      - /var/run/docker.sock:/var/run/docker.sock  # Donne accès au Docker host (important pour lancer des containers dans les pipelines)
 
   cypress:
     image: cypress/included:12.17.4
     container_name: cypress
     entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./tests:/e2e  # (optionnel : monter tes tests locaux si besoin)
+      - ~/.cache:/root/.cache  # pour accélérer les builds cypress
 
   newman:
-    image: postman/newman:latest
+    image: postman/newman:alpine
     container_name: newman
     entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   k6:
     image: grafana/k6
     container_name: k6
     entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   jenkins_home:
