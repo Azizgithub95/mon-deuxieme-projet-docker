@@ -37,8 +37,11 @@ pipeline {
       }
       steps {
         echo '--- Installing & Running Cypress tests ---'
-        // 'npm install' car pas de package-lock.json
+        // installe les dépendances JS
         sh 'npm install --no-audit --progress=false'
+        // télécharge/installe le binaire Cypress dans le cache
+        sh 'npx cypress install'
+        // enfin lance les tests
         sh 'npx cypress run'
       }
     }
@@ -93,7 +96,7 @@ pipeline {
             to: 'aziztesteur@hotmail.com'
           )
         } catch (e) {
-          echo "⚠ Envoi de mail échoué : ${e.message}"
+          echo "⚠ Échec de l’envoi d’email : ${e.message}"
         }
       }
     }
