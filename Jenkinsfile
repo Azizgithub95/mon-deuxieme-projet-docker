@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   options {
-    // On gère notre propre checkout
+    // Pas de checkout automatique (on le fait manuellement)
     skipDefaultCheckout()
   }
 
@@ -37,11 +37,8 @@ pipeline {
       }
       steps {
         echo '--- Installing & Running Cypress tests ---'
-        // installe les dépendances JS
         sh 'npm install --no-audit --progress=false'
-        // télécharge/installe le binaire Cypress dans le cache
         sh 'npx cypress install'
-        // enfin lance les tests
         sh 'npx cypress run'
       }
     }
@@ -58,7 +55,8 @@ pipeline {
       steps {
         echo '--- Running Newman tests ---'
         sh '''
-          newman run collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
+          mkdir -p reports/newman
+          newman run ./MOCK_AZIZ_SERVEUR.postman_collection.json \
             --reporters cli,html \
             --reporter-html-export reports/newman/newman-report.html
         '''
@@ -75,7 +73,10 @@ pipeline {
       }
       steps {
         echo '--- Running K6 tests ---'
-        sh 'k6 run tests/test_k6.js'
+        sh '''
+          mkdir -p reports/k6
+          k6 run test_k6.js
+        '''
       }
     }
   }
