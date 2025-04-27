@@ -103,7 +103,7 @@ pipeline {
       emailext(
         subject: "🚨 Échec : ${currentBuild.fullDisplayName}",
         body: """
-          Oupssess, encore un brrv autre build ${currentBuild.fullDisplayName} a échoué avec l’état : ${currentBuild.result}.
+          Oupssess, encore un brrazv autre build ${currentBuild.fullDisplayName} a échoué avec l’état : ${currentBuild.result}.
           Consultez les logs ici : ${env.BUILD_URL}
         """,
         to: 'aziztesteur@hotmail.com'
