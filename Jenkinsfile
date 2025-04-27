@@ -1,12 +1,9 @@
 pipeline {
     agent any
 
-    options {
-        skipDefaultCheckout(true)
-    }
-
     environment {
-        CACHE_VOLUME = "$HOME/.cache:/root/.cache"
+        WORKSPACE_DIR = "${env.WORKSPACE}"
+        CACHE_DIR = "${env.HOME}/.cache"
     }
 
     stages {
@@ -14,7 +11,12 @@ pipeline {
             steps {
                 echo "--- Running Cypress tests ---"
                 sh '''
-                    docker run --rm -v $(pwd):/e2e -w /e2e -v $HOME/.cache:/root/.cache cypress/included:12.17.4 npx cypress run
+                    docker run --rm \
+                        -v "$WORKSPACE_DIR:/e2e" \
+                        -w /e2e \
+                        -v "$CACHE_DIR:/root/.cache" \
+                        cypress/included:12.17.4 \
+                        npx cypress run
                 '''
             }
         }
@@ -23,9 +25,12 @@ pipeline {
             steps {
                 echo "--- Running Newman tests ---"
                 sh '''
-                    docker run --rm -v $(pwd):/etc/newman -w /etc/newman postman/newman:alpine \
-                    run ./collections/MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli,html \
-                    --reporter-html-export ./reports/newman/newman-report.html
+                    docker run --rm \
+                        -v "$WORKSPACE_DIR:/etc/newman" \
+                        postman/newman:alpine \
+                        run ./collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
+                        --reporters cli,html \
+                        --reporter-html-export ./reports/newman/newman-report.html
                 '''
             }
         }
@@ -34,7 +39,9 @@ pipeline {
             steps {
                 echo "--- Running K6 tests ---"
                 sh '''
-                    docker run --rm -v $(pwd):/scripts -w /scripts grafana/k6 run ./tests/test_k6.js
+                    docker run --rm \
+                        -v "$WORKSPACE_DIR:/scripts" \
+                        grafana/k6 run /scripts/tests/test_k6.js
                 '''
             }
         }
