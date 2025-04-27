@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        HOME = '/root'
+        CACHE_DIR = "$HOME/.cache"
     }
 
     stages {
@@ -10,12 +10,12 @@ pipeline {
             agent {
                 docker {
                     image 'cypress/included:12.17.4'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.cache:/root/.cache'
+                    args "-v $CACHE_DIR:/root/.cache"
                 }
             }
             steps {
                 echo "--- Running Cypress tests ---"
-                sh 'npx cypress run || npx cypress install && npx cypress run'
+                sh 'npx cypress run'
             }
         }
 
@@ -23,7 +23,6 @@ pipeline {
             agent {
                 docker {
                     image 'postman/newman:alpine'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
             steps {
@@ -36,7 +35,6 @@ pipeline {
             agent {
                 docker {
                     image 'grafana/k6'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
             steps {
@@ -52,8 +50,8 @@ pipeline {
             archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
 
             emailext(
-                subject: "Résultat du Build: ${currentBuild.fullDisplayName}",
-                body: "Le build ${currentBuild.fullDisplayName} est terminé avec le statut : ${currentBuild.result}.\nLien : ${env.BUILD_URL}",
+                subject: "Build Result: ${currentBuild.fullDisplayName}",
+                body: "Le build ${currentBuild.fullDisplayName} est terminé avec le statut : ${currentBuild.result}\nConsultez les détails ici : ${env.BUILD_URL}",
                 to: 'aziztesteur@hotmail.com'
             )
         }
