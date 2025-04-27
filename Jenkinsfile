@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     environment {
         CACHE_VOLUME = "$HOME/.cache:/root/.cache"
     }
