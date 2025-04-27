@@ -2,16 +2,14 @@ pipeline {
   agent any
 
   options {
-    // désactive le checkout automatique (on le fait manuellement)
+    // désactive le checkout automatique
     skipDefaultCheckout()
   }
 
   stages {
     stage('Checkout') {
       steps {
-        // nettoie le workspace avant tout
         cleanWs()
-        // checkout propre du repo Git
         checkout([
           $class: 'GitSCM',
           branches: [[ name: '*/main' ]],
@@ -37,8 +35,9 @@ pipeline {
         }
       }
       steps {
-        echo '--- Running Cypress tests ---'
-        sh 'npm ci --prefer-offline --no-audit --progress=false'
+        echo '--- Installing & Running Cypress tests ---'
+        // passe sur npm install puisqu’il n’y a pas de package-lock.json dans le repo
+        sh 'npm install --no-audit --progress=false'
         sh 'npx cypress run'
       }
     }
@@ -82,14 +81,21 @@ pipeline {
       echo "✅ Pipeline terminé. Archivage des résultats..."
       archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
 
-      emailext(
-        subject: "Build Result: ${currentBuild.fullDisplayName}",
-        body: """
-          Le build ${currentBuild.fullDisplayName} est ${currentBuild.result}
-          Consultez les détails ici : ${env.BUILD_URL}
-        """,
-        to: 'aziztesteur@hotmail.com'
-      )
+      // on encapsule l'email dans un try/catch pour ne pas faire échouer le pipeline
+      script {
+        try {
+          emailext(
+            subject: "Build Result: ${currentBuild.fullDisplayName}",
+            body: """
+              Le build ${currentBuild.fullDisplayName} est ${currentBuild.result}
+              Consultez les détails ici : ${env.BUILD_URL}
+            """,
+            to: 'aziztesteur@hotmail.com'
+          )
+        } catch (e) {
+          echo "⚠ Envoi de mail échoué : ${e.message}"
+        }
+      }
     }
   }
 }
