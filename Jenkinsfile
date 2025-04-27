@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout true  // << NE PAS refaire un checkout car Jenkins l'a déjà fait
+    }
+
     environment {
         WORKSPACE_DIR = "${env.WORKSPACE}"
         CACHE_DIR = "${env.HOME}/.cache"
@@ -12,11 +16,10 @@ pipeline {
                 echo "--- Running Cypress tests ---"
                 sh '''
                     docker run --rm \
-                        -v "$WORKSPACE_DIR:/e2e" \
+                        -v "$WORKSPACE_DIR":/e2e \
                         -w /e2e \
-                        -v "$CACHE_DIR:/root/.cache" \
-                        cypress/included:12.17.4 \
-                        npx cypress run
+                        -v "$CACHE_DIR":/root/.cache \
+                        cypress/included:12.17.4 npx cypress run
                 '''
             }
         }
@@ -26,11 +29,9 @@ pipeline {
                 echo "--- Running Newman tests ---"
                 sh '''
                     docker run --rm \
-                        -v "$WORKSPACE_DIR:/etc/newman" \
-                        postman/newman:alpine \
-                        run ./collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
-                        --reporters cli,html \
-                        --reporter-html-export ./reports/newman/newman-report.html
+                        -v "$WORKSPACE_DIR":/etc/newman \
+                        postman/newman:latest run /etc/newman/collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
+                        --reporters cli,html --reporter-html-export /etc/newman/reports/newman/newman-report.html
                 '''
             }
         }
@@ -40,8 +41,8 @@ pipeline {
                 echo "--- Running K6 tests ---"
                 sh '''
                     docker run --rm \
-                        -v "$WORKSPACE_DIR:/scripts" \
-                        grafana/k6 run /scripts/tests/test_k6.js
+                        -v "$WORKSPACE_DIR":/k6 \
+                        grafana/k6 run /k6/tests/test_k6.js
                 '''
             }
         }
