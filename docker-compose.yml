@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk17  # ✅ image Jenkins avec Java + Docker possible
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: jenkins
     user: root
     ports:
@@ -10,7 +12,7 @@ services:
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock  # 🔥 accès au Docker de ta machine pour lancer d'autres containers
+      - /var/run/docker.sock:/var/run/docker.sock  # 🔥 accès au Docker de l'hôte
 
   cypress:
     image: cypress/included:12.17.4
