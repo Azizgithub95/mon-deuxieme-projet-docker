@@ -2,16 +2,16 @@ pipeline {
   agent any
 
   options {
-    // ne pas faire un checkout implicite en début de pipeline
+    // désactive le checkout automatique (on le fait manuellement)
     skipDefaultCheckout()
   }
 
   stages {
     stage('Checkout') {
       steps {
-        // 1) on nettoie le workspace  
+        // nettoie le workspace avant tout
         cleanWs()
-        // 2) puis on clone proprement
+        // checkout propre du repo Git
         checkout([
           $class: 'GitSCM',
           branches: [[ name: '*/main' ]],
@@ -20,7 +20,6 @@ pipeline {
             credentialsId: 'fa8021fb-9db2-4dec-abf5-c3aca0766855'
           ]],
           extensions: [
-            // supprime tout avant chaque checkout
             [$class: 'CleanBeforeCheckout']
           ]
         ])
@@ -31,13 +30,15 @@ pipeline {
       agent {
         docker {
           image 'cypress/included:12.17.4'
-          args  '-v $HOME/.cache:/root/.cache ' +
+          args  '--entrypoint="" ' +
+                '-v $HOME/.npm:/root/.npm ' +
+                '-v $HOME/.cache:/root/.cache ' +
                 '-v /var/run/docker.sock:/var/run/docker.sock'
         }
       }
       steps {
         echo '--- Running Cypress tests ---'
-        sh 'npm ci'
+        sh 'npm ci --prefer-offline --no-audit --progress=false'
         sh 'npx cypress run'
       }
     }
@@ -46,7 +47,9 @@ pipeline {
       agent {
         docker {
           image 'postman/newman:alpine'
-          args  '-v $PWD:/etc/newman'
+          args  '--entrypoint="" ' +
+                '-v $PWD:/etc/newman ' +
+                '-v $HOME/.npm:/root/.npm'
         }
       }
       steps {
@@ -63,7 +66,8 @@ pipeline {
       agent {
         docker {
           image 'grafana/k6'
-          args  '-v $PWD:/workspace'
+          args  '--entrypoint="" ' +
+                '-v $PWD:/workspace'
         }
       }
       steps {
