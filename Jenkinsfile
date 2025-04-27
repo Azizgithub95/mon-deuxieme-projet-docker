@@ -2,16 +2,16 @@ pipeline {
   agent any
 
   options {
-    // nettoie le workspace avant chaque build
-    cleanWs()
-    // empêche le checkout automatique en début
-    skipDefaultCheckout(true)
+    // ne pas faire un checkout implicite en début de pipeline
+    skipDefaultCheckout()
   }
 
   stages {
     stage('Checkout') {
       steps {
-        // clean + checkout propre
+        // 1) on nettoie le workspace  
+        cleanWs()
+        // 2) puis on clone proprement
         checkout([
           $class: 'GitSCM',
           branches: [[ name: '*/main' ]],
@@ -20,6 +20,7 @@ pipeline {
             credentialsId: 'fa8021fb-9db2-4dec-abf5-c3aca0766855'
           ]],
           extensions: [
+            // supprime tout avant chaque checkout
             [$class: 'CleanBeforeCheckout']
           ]
         ])
@@ -45,8 +46,7 @@ pipeline {
       agent {
         docker {
           image 'postman/newman:alpine'
-          // Monte tout le workspace pour accéder aux collections et aux reports
-          args '-v $PWD:/etc/newman'
+          args  '-v $PWD:/etc/newman'
         }
       }
       steps {
