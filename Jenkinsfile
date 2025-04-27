@@ -2,7 +2,6 @@ pipeline {
   agent any
 
   options {
-    // Pas de checkout automatique (on le fait manuellement)
     skipDefaultCheckout()
   }
 
@@ -85,21 +84,30 @@ pipeline {
     always {
       echo "✅ Pipeline terminé. Archivage des résultats..."
       archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
+    }
 
-      script {
-        try {
-          emailext(
-            subject: "Build Result: ${currentBuild.fullDisplayName}",
-            body: """
-              Le build ${currentBuild.fullDisplayName} est ${currentBuild.result}
-              Consultez les détails ici : ${env.BUILD_URL}
-            """,
-            to: 'aziztesteur@hotmail.com'
-          )
-        } catch (e) {
-          echo "⚠ Échec de l’envoi d’email : ${e.message}"
-        }
-      }
+    success {
+      echo "🎉 Build réussi ! Envoi du mail de notification (SUCCESS)."
+      emailext(
+        subject: "✅ Succès : ${currentBuild.fullDisplayName}",
+        body: """
+          Bravo ! Le build ${currentBuild.fullDisplayName} s'est terminé avec succès.
+          Consultez les détails ici : ${env.BUILD_URL}
+        """,
+        to: 'aziztesteur@hotmail.com'
+      )
+    }
+
+    failure {
+      echo "❌ Build échoué ! Envoi du mail de notification (FAILURE)."
+      emailext(
+        subject: "🚨 Échec : ${currentBuild.fullDisplayName}",
+        body: """
+          Oups, le build ${currentBuild.fullDisplayName} a échoué avec l’état : ${currentBuild.result}.
+          Consultez les logs ici : ${env.BUILD_URL}
+        """,
+        to: 'aziztesteur@hotmail.com'
+      )
     }
   }
 }
