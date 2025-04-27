@@ -1,39 +1,25 @@
+# docker-compose.yml
 version: '3.8'
 
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk17
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
     container_name: jenkins
     user: root
     ports:
       - "8090:8080"
       - "50000:50000"
+    environment:
+      # désactive l’assistant de démarrage (optionnel)
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock  # Donne accès au Docker host (important pour lancer des containers dans les pipelines)
-
-  cypress:
-    image: cypress/included:12.17.4
-    container_name: cypress
-    entrypoint: ["tail", "-f", "/dev/null"]
-    volumes:
+      # accès au daemon Docker de la VM
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./tests:/e2e  # (optionnel : monter tes tests locaux si besoin)
-      - ~/.cache:/root/.cache  # pour accélérer les builds cypress
-
-  newman:
-    image: postman/newman:alpine
-    container_name: newman
-    entrypoint: ["tail", "-f", "/dev/null"]
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-  k6:
-    image: grafana/k6
-    container_name: k6
-    entrypoint: ["tail", "-f", "/dev/null"]
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # conservez le cache npm/Cypress entre les builds
+      - ~/.cache:/var/jenkins_home/.cache
 
 volumes:
   jenkins_home:
