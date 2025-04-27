@@ -4,42 +4,38 @@ services:
   jenkins:
     image: jenkins/jenkins:lts
     container_name: jenkins
+    user: root
     ports:
-      - "8080:8080"
+      - "8090:8080"
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-    restart: always
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
 
   cypress:
     image: cypress/included:12.17.4
     container_name: cypress
+    entrypoint: ["tail", "-f", "/dev/null"]
     working_dir: /e2e
     volumes:
       - ./:/e2e
-    entrypoint: ["npx", "cypress", "run"]
-    depends_on:
-      - jenkins
 
   newman:
     image: postman/newman:latest
     container_name: newman
-    working_dir: /etc/newman
+    entrypoint: ["tail", "-f", "/dev/null"]
+    working_dir: /collection
     volumes:
-      - ./:/etc/newman
-    entrypoint: ["newman", "run", "MOCK_AZIZ_SERVEUR.postman_collection.json"]
-    depends_on:
-      - jenkins
+      - ./:/collection
 
   k6:
     image: grafana/k6
     container_name: k6
+    entrypoint: ["tail", "-f", "/dev/null"]
     working_dir: /scripts
     volumes:
       - ./:/scripts
-    entrypoint: ["k6", "run", "test_k6.js"]
-    depends_on:
-      - jenkins
 
 volumes:
   jenkins_home:
