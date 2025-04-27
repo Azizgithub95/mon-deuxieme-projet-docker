@@ -1,41 +1,37 @@
 pipeline {
-    agent none
+    agent any
+
+    environment {
+        CACHE_VOLUME = "$HOME/.cache:/root/.cache"
+    }
 
     stages {
         stage('Cypress Tests') {
-            agent {
-                docker {
-                    image 'cypress/included:12.17.4' 
-                    args '-v $HOME/.cache:/root/.cache' 
-                }
-            }
             steps {
                 echo "--- Running Cypress tests ---"
-                sh 'npx cypress run'
+                sh '''
+                    docker run --rm -v $(pwd):/e2e -w /e2e -v $HOME/.cache:/root/.cache cypress/included:12.17.4 npx cypress run
+                '''
             }
         }
 
         stage('Newman Tests') {
-            agent {
-                docker {
-                    image 'postman/newman:alpine'
-                }
-            }
             steps {
                 echo "--- Running Newman tests ---"
-                sh 'newman run ./collections/MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli,html --reporter-html-export ./reports/newman/newman-report.html'
+                sh '''
+                    docker run --rm -v $(pwd):/etc/newman -w /etc/newman postman/newman:alpine \
+                    run ./collections/MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli,html \
+                    --reporter-html-export ./reports/newman/newman-report.html
+                '''
             }
         }
 
         stage('K6 Tests') {
-            agent {
-                docker {
-                    image 'grafana/k6'
-                }
-            }
             steps {
                 echo "--- Running K6 tests ---"
-                sh 'k6 run ./tests/test_k6.js'
+                sh '''
+                    docker run --rm -v $(pwd):/scripts -w /scripts grafana/k6 run ./tests/test_k6.js
+                '''
             }
         }
     }
