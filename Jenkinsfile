@@ -103,7 +103,7 @@ pipeline {
       emailext(
         subject: "🚨 Échec : ${currentBuild.fullDisplayName}",
         body: """
-          Oups, le build ${currentBuild.fullDisplayName} a échoué avec l’état : ${currentBuild.result}.
+          Oupssss, le build ${currentBuild.fullDisplayName} a échoué avec l’état : ${currentBuild.result}.
           Consultez les logs ici : ${env.BUILD_URL}
         """,
         to: 'aziztesteur@hotmail.com'
