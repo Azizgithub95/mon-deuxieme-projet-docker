@@ -1,36 +1,56 @@
 pipeline {
-    agent any
+    agent none
 
     stages {
-        stage('Install dependencies') {
-            steps {
-                sh 'npm install'
+        stage('Cypress Tests') {
+            agent {
+                docker {
+                    image 'cypress/included:12.17.4' 
+                    args '-v $HOME/.cache:/root/.cache' 
+                }
             }
-        }
-
-        stage('Run Cypress test') {
             steps {
+                echo "--- Running Cypress tests ---"
                 sh 'npx cypress run'
             }
         }
 
-        stage('Run Newman test') {
+        stage('Newman Tests') {
+            agent {
+                docker {
+                    image 'postman/newman:alpine'
+                }
+            }
             steps {
-                sh 'newman run MOCK_AZIZ_SERVEUR.postman_collection.json -r cli,html --reporter-html-export report_newman.html'
+                echo "--- Running Newman tests ---"
+                sh 'newman run ./collections/MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli,html --reporter-html-export ./reports/newman/newman-report.html'
             }
         }
 
-        stage('Run K6 test') {
+        stage('K6 Tests') {
+            agent {
+                docker {
+                    image 'grafana/k6'
+                }
+            }
             steps {
-                sh 'k6 run test_k6.js'
+                echo "--- Running K6 tests ---"
+                sh 'k6 run ./tests/test_k6.js'
             }
         }
     }
 
     post {
         always {
-            echo '✅ Pipeline finished. Archiving of results...'
-            archiveArtifacts artifacts: '**/*.html', allowEmptyArchive: true
+            echo "✅ Pipeline terminé. Archivage des résultats..."
+
+            archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
+
+            emailext(
+                subject: "Build Result: ${currentBuild.fullDisplayName}",
+                body: "Le build ${currentBuild.fullDisplayName} est terminé avec le statut : ${currentBuild.result}\nConsultez les détails ici : ${env.BUILD_URL}",
+                to: 'aziztesteur@hotmail.com'
+            )
         }
     }
 }
