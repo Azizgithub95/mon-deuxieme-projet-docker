@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   options {
-    // désactive le checkout automatique
+    // On gère notre propre checkout
     skipDefaultCheckout()
   }
 
@@ -28,6 +28,7 @@ pipeline {
       agent {
         docker {
           image 'cypress/included:12.17.4'
+          reuseNode true
           args  '--entrypoint="" ' +
                 '-v $HOME/.npm:/root/.npm ' +
                 '-v $HOME/.cache:/root/.cache ' +
@@ -36,7 +37,7 @@ pipeline {
       }
       steps {
         echo '--- Installing & Running Cypress tests ---'
-        // passe sur npm install puisqu’il n’y a pas de package-lock.json dans le repo
+        // 'npm install' car pas de package-lock.json
         sh 'npm install --no-audit --progress=false'
         sh 'npx cypress run'
       }
@@ -46,17 +47,17 @@ pipeline {
       agent {
         docker {
           image 'postman/newman:alpine'
+          reuseNode true
           args  '--entrypoint="" ' +
-                '-v $PWD:/etc/newman ' +
                 '-v $HOME/.npm:/root/.npm'
         }
       }
       steps {
         echo '--- Running Newman tests ---'
         sh '''
-          newman run /etc/newman/collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
+          newman run collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
             --reporters cli,html \
-            --reporter-html-export /etc/newman/reports/newman-report.html
+            --reporter-html-export reports/newman/newman-report.html
         '''
       }
     }
@@ -65,13 +66,13 @@ pipeline {
       agent {
         docker {
           image 'grafana/k6'
-          args  '--entrypoint="" ' +
-                '-v $PWD:/workspace'
+          reuseNode true
+          args  '--entrypoint=""'
         }
       }
       steps {
         echo '--- Running K6 tests ---'
-        sh 'k6 run /workspace/tests/test_k6.js'
+        sh 'k6 run tests/test_k6.js'
       }
     }
   }
@@ -81,7 +82,6 @@ pipeline {
       echo "✅ Pipeline terminé. Archivage des résultats..."
       archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
 
-      // on encapsule l'email dans un try/catch pour ne pas faire échouer le pipeline
       script {
         try {
           emailext(
