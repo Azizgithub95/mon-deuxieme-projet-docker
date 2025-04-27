@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk11  # ✅ image Jenkins avec Java + Docker possible
+    image: jenkins/jenkins:lts-jdk17  # ✅ image Jenkins avec Java + Docker possible
     container_name: jenkins
     user: root
     ports:
