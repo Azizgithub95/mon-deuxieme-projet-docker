@@ -18,7 +18,7 @@ pipeline {
                     docker run --rm \
                         -v "$WORKSPACE_DIR":/e2e \
                         -w /e2e \
-                        -v "$CACHE_DIR":/root/.cache \
+                        
                         cypress/included:12.17.4 npx cypress run
                 '''
             }
