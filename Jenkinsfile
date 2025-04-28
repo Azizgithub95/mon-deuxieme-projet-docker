@@ -61,7 +61,7 @@ pipeline {
   post {
     always {
       // Archive tous les rapports générés
-      archiveArtifacts artifacts: 'reports/**/*', fingerprint: true
+     archiveArtifacts artifacts: 'reports/**',     fingerprint: true
     }
   }
 }
