@@ -44,7 +44,7 @@ pipeline {
       archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
     }
     success {
-      emailext subject: "✅ Succès : ${currentBuild.fullDisplayName}",
+      emailext subject: "✅ encore Succès : ${currentBuild.fullDisplayName}",
                body: "Build OK ! ${env.BUILD_URL}",
                to: 'aziztesteur@hotmail.com'
     }
