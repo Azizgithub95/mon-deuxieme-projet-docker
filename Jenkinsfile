@@ -114,7 +114,7 @@ pipeline {
     success {
       emailext(
         subject: "✅ Succès build ${currentBuild.fullDisplayName}",
-        body:    "Le build a fr réussi : ${env.BUILD_URL}",
+        body:    "Le build a réussi : ${env.BUILD_URL}",
         to:      'aziztesteur@hotmail.com'
       )
     }
