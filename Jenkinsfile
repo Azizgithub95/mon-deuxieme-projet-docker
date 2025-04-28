@@ -2,25 +2,24 @@ pipeline {
   agent any
 
   environment {
-    // Nom de ton image Docker sur Docker Hub
+    // Change ici pour ton namespace sur Docker Hub
     DOCKER_IMAGE = 'aziztesteur95100/mon-deuxieme-projet-docker'
   }
 
   stages {
-    stage('Checkout SCM') {
+    stage('Checkout') {
       steps {
         checkout scm
       }
     }
 
-    stage('Tests') {
+    stage('Tests en parallèle') {
       parallel {
         stage('Cypress') {
-          // Pour lancer Cypress dans un container
           agent {
             docker {
               image 'cypress/included:12.17.4'
-              args  '-u root' 
+              // si besoin de root : args '-u root'
             }
           }
           steps {
@@ -30,7 +29,6 @@ pipeline {
         }
 
         stage('Newman') {
-          // Pour lancer Newman dans un container
           agent {
             docker {
               image 'postman/newman:alpine'
@@ -47,8 +45,7 @@ pipeline {
           }
         }
 
-        stage('K6') {
-          // Pour lancer K6 dans un container
+        stage('k6') {
           agent {
             docker {
               image 'grafana/k6'
@@ -65,9 +62,8 @@ pipeline {
     stage('Build & Push Docker Image') {
       steps {
         script {
-          // Se connecter à Docker Hub avec l'ID 'docker-hub-creds'
+          // 'docker-hub-creds' doit être un "Username with password" créé dans Jenkins > Credentials
           docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-creds') {
-            // Construire l'image et la tagger avec le numéro de build + latest
             def img = docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
             img.push("${env.BUILD_NUMBER}")
             img.push('latest')
@@ -79,14 +75,13 @@ pipeline {
 
   post {
     always {
-      // Archive tes rapports et le Jenkinsfile pour debug
       archiveArtifacts artifacts: 'reports/**/*.*, Jenkinsfile', fingerprint: true
     }
     success {
-      echo '✅ Build et push Docker réussis !'
+      echo '✅ Tout s’est bien passé !'
     }
     failure {
-      echo '❌ Quelque chose s’est mal passé…'
+      echo '❌ Échec de la pipeline.'
     }
   }
 }
