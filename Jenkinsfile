@@ -97,7 +97,7 @@ pipeline {
     failure {
       emailext(
         subject: "❌ Échec ${currentBuild.fullDisplayName}",
-        body:    "Build échoué : ${env.BUILD_URL}",
+        body:    "Build huj échoué : ${env.BUILD_URL}",
         to:      'aziztesteur@hotmail.com'
       )
     }
