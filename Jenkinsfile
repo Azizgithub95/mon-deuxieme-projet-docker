@@ -6,6 +6,7 @@ pipeline {
   }
 
   environment {
+    // À adapter si besoin
     DOCKER_REGISTRY    = "docker.io"
     DOCKER_REPO        = "azizgithub95/mon-deuxieme-projet-docker"
     DOCKER_CREDENTIALS = "dockerhub-creds-id"
@@ -82,7 +83,9 @@ pipeline {
       when { branch 'main' }
       steps {
         script {
+          // build image taguée par le build number
           def img = docker.build("${DOCKER_REPO}:${env.BUILD_NUMBER}")
+          // push vers le registry avec login
           docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
             img.push()
             img.push("latest")
@@ -98,15 +101,15 @@ pipeline {
     }
     success {
       emailext(
-        subject: "✅ Succès : ${currentBuild.fullDisplayName}",
-        body:    "Build OK ! ${env.BUILD_URL}",
+        subject: "✅ Build réussi : ${currentBuild.fullDisplayName}",
+        body:    "Le build s’est terminé avec succès ! Consultez ${env.BUILD_URL}",
         to:      'aziztesteur@hotmail.com'
       )
     }
     failure {
       emailext(
-        subject: "🚨 Échec : ${currentBuild.fullDisplayName}",
-        body:    "Build FAILED. ${env.BUILD_URL}",
+        subject: "🚨 Build échoué : ${currentBuild.fullDisplayName}",
+        body:    "Le build a échoué. Détails : ${env.BUILD_URL}",
         to:      'aziztesteur@hotmail.com'
       )
     }
