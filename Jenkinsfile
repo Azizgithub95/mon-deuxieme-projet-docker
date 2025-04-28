@@ -1,27 +1,23 @@
 pipeline {
   agent any
 
+  // Variables réutilisables
   environment {
-    // Change ici pour ton namespace sur Docker Hub
-    DOCKER_IMAGE = 'aziztesteur95100/mon-deuxieme-projet-docker'
+    IMAGE_NAME = 'aziztesteur95100/mon-deuxieme-projet'
+    DOCKER_CREDENTIALS = 'docker-hub-credentials'
   }
 
   stages {
-    stage('Checkout') {
+    stage('Checkout SCM') {
       steps {
         checkout scm
       }
     }
 
-    stage('Tests en parallèle') {
+    stage('Tests') {
       parallel {
         stage('Cypress') {
-          agent {
-            docker {
-              image 'cypress/included:12.17.4'
-              // si besoin de root : args '-u root'
-            }
-          }
+          agent { docker { image 'cypress/included:12.17.4' } }
           steps {
             sh 'npm ci --no-audit --progress=false'
             sh 'npx cypress run'
@@ -29,28 +25,15 @@ pipeline {
         }
 
         stage('Newman') {
-          agent {
-            docker {
-              image 'postman/newman:alpine'
-            }
-          }
+          agent { docker { image 'postman/newman:alpine' } }
           steps {
             sh 'npm ci --no-audit --progress=false'
-            sh 'mkdir -p reports/newman'
-            sh '''
-              newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
-                --reporters cli,html \
-                --reporter-html-export reports/newman/newman-report.html
-            '''
+            sh 'newman run MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli,html --reporter-html-export reports/newman/newman-report.html'
           }
         }
 
-        stage('k6') {
-          agent {
-            docker {
-              image 'grafana/k6'
-            }
-          }
+        stage('K6') {
+          agent { docker { image 'grafana/k6' } }
           steps {
             sh 'mkdir -p reports/k6'
             sh 'k6 run test_k6.js'
@@ -62,11 +45,13 @@ pipeline {
     stage('Build & Push Docker Image') {
       steps {
         script {
-          // 'docker-hub-creds' doit être un "Username with password" créé dans Jenkins > Credentials
-          docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-creds') {
-            def img = docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
-            img.push("${env.BUILD_NUMBER}")
-            img.push('latest')
+          // Build l’image avec un tag basé sur le numéro de build Jenkins
+          def img = docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
+
+          // Authentification et push sur Docker Hub
+          docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDENTIALS) {
+            img.push()          // tag :${BUILD_NUMBER}
+            img.push('latest')  // tag :latest
           }
         }
       }
@@ -75,13 +60,8 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'reports/**/*.*, Jenkinsfile', fingerprint: true
-    }
-    success {
-      echo '✅ Tout s’est bien passé !'
-    }
-    failure {
-      echo '❌ Échec de la pipeline.'
+      // Archive tous les rapports générés
+      archiveArtifacts artifacts: 'reports/**/*', fingerprint: true
     }
   }
 }
