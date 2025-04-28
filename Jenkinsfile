@@ -90,7 +90,7 @@ pipeline {
     success {
       emailext(
         subject: "✅ Succès ${currentBuild.fullDisplayName}",
-        body:    "Build réussi : ${env.BUILD_URL}",
+        body:    "Build encore  réussi : ${env.BUILD_URL}",
         to:      'aziztesteur@hotmail.com'
       )
     }
