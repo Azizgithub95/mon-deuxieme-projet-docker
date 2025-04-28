@@ -2,10 +2,8 @@ pipeline {
   agent any
 
   environment {
-    // À adapter
-    REGISTRY_URL          = 'https://index.docker.io/v1/'
-    REGISTRY_CREDENTIALS  = 'docker-hub-credentials-id'
-    IMAGE_NAME            = 'azizgithub95/mon-deuxieme-projet-docker'
+    // Nom de ton image Docker sur Docker Hub
+    DOCKER_IMAGE = 'aziztesteur95100/mon-deuxieme-projet-docker'
   }
 
   stages {
@@ -18,10 +16,11 @@ pipeline {
     stage('Tests') {
       parallel {
         stage('Cypress') {
+          // Pour lancer Cypress dans un container
           agent {
             docker {
               image 'cypress/included:12.17.4'
-              args  '--entrypoint=""'
+              args  '-u root' 
             }
           }
           steps {
@@ -31,16 +30,16 @@ pipeline {
         }
 
         stage('Newman') {
+          // Pour lancer Newman dans un container
           agent {
             docker {
               image 'postman/newman:alpine'
-              args  '--entrypoint=""'
             }
           }
           steps {
             sh 'npm ci --no-audit --progress=false'
+            sh 'mkdir -p reports/newman'
             sh '''
-              mkdir -p reports/newman
               newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
                 --reporters cli,html \
                 --reporter-html-export reports/newman/newman-report.html
@@ -49,31 +48,29 @@ pipeline {
         }
 
         stage('K6') {
+          // Pour lancer K6 dans un container
           agent {
             docker {
               image 'grafana/k6'
-              args  '--entrypoint=""'
             }
           }
           steps {
-            sh '''
-              mkdir -p reports/k6
-              k6 run test_k6.js
-            '''
+            sh 'mkdir -p reports/k6'
+            sh 'k6 run test_k6.js'
           }
         }
       }
     }
 
     stage('Build & Push Docker Image') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
       steps {
         script {
-          docker.withRegistry(REGISTRY_URL, REGISTRY_CREDENTIALS) {
-            def img = docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
-            img.push()
+          // Se connecter à Docker Hub avec l'ID 'docker-hub-creds'
+          docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-creds') {
+            // Construire l'image et la tagger avec le numéro de build + latest
+            def img = docker.build("${DOCKER_IMAGE}:${env.BUILD_NUMBER}")
+            img.push("${env.BUILD_NUMBER}")
+            img.push('latest')
           }
         }
       }
@@ -82,14 +79,14 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'reports/**/*', allowEmptyArchive: true
+      // Archive tes rapports et le Jenkinsfile pour debug
+      archiveArtifacts artifacts: 'reports/**/*.*, Jenkinsfile', fingerprint: true
+    }
+    success {
+      echo '✅ Build et push Docker réussis !'
     }
     failure {
-      emailext (
-        to:      'aziztesteur@hotmail.com',
-        subject: "Échec du build ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-        body:    "Le build a échoué. Consulte les logs Jenkins pour plus de détails."
-      )
+      echo '❌ Quelque chose s’est mal passé…'
     }
   }
 }
