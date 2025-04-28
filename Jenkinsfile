@@ -1,12 +1,14 @@
 pipeline {
   agent any
 
-  options { skipDefaultCheckout() }
+  options {
+    skipDefaultCheckout()
+  }
 
   environment {
-    DOCKER_REGISTRY     = "docker.io"
-    DOCKER_REPO         = "azizgithub95/mon-deuxieme-projet-docker"
-    DOCKER_CREDENTIALS  = "dockerhub-creds-id"
+    DOCKER_REGISTRY    = "docker.io"
+    DOCKER_REPO        = "azizgithub95/mon-deuxieme-projet-docker"
+    DOCKER_CREDENTIALS = "dockerhub-creds-id"
   }
 
   stages {
@@ -19,9 +21,60 @@ pipeline {
 
     stage('Tests') {
       parallel {
-        stage('Cypress') { /* …comme montré plus haut…*/ }
-        stage('Newman')  { /* …*/ }
-        stage('K6')      { /* …*/ }
+        stage('Cypress') {
+          agent {
+            docker {
+              image 'cypress/included:12.17.4'
+              reuseNode true
+              args  '--entrypoint="" ' +
+                    '-v $HOME/.npm:/root/.npm ' +
+                    '-v $HOME/.cache:/root/.cache ' +
+                    '-v /var/run/docker.sock:/var/run/docker.sock'
+            }
+          }
+          steps {
+            echo '--- Running Cypress tests ---'
+            sh 'npm install --no-audit --progress=false'
+            sh 'npx cypress install'
+            sh 'npx cypress run'
+          }
+        }
+
+        stage('Newman') {
+          agent {
+            docker {
+              image 'postman/newman:alpine'
+              reuseNode true
+              args  '--entrypoint=""'
+            }
+          }
+          steps {
+            echo '--- Running Newman tests ---'
+            sh '''
+              mkdir -p reports/newman
+              newman run ./collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
+                --reporters cli,html \
+                --reporter-html-export reports/newman/newman-report.html
+            '''
+          }
+        }
+
+        stage('K6') {
+          agent {
+            docker {
+              image 'grafana/k6'
+              reuseNode true
+              args  '--entrypoint=""'
+            }
+          }
+          steps {
+            echo '--- Running K6 tests ---'
+            sh '''
+              mkdir -p reports/k6
+              k6 run ./tests/test_k6.js
+            '''
+          }
+        }
       }
     }
 
@@ -44,14 +97,18 @@ pipeline {
       archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
     }
     success {
-      emailext subject: "✅ encore Succès : ${currentBuild.fullDisplayName}",
-               body: "Build OK ! ${env.BUILD_URL}",
-               to: 'aziztesteur@hotmail.com'
+      emailext(
+        subject: "✅ Succès : ${currentBuild.fullDisplayName}",
+        body:    "Build OK ! ${env.BUILD_URL}",
+        to:      'aziztesteur@hotmail.com'
+      )
     }
     failure {
-      emailext subject: "🚨 Échec : ${currentBuild.fullDisplayName}",
-               body: "Build FAIL. ${env.BUILD_URL}",
-               to: 'aziztesteur@hotmail.com'
+      emailext(
+        subject: "🚨 Échec : ${currentBuild.fullDisplayName}",
+        body:    "Build FAILED. ${env.BUILD_URL}",
+        to:      'aziztesteur@hotmail.com'
+      )
     }
   }
 }
