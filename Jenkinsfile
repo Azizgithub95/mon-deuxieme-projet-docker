@@ -50,7 +50,7 @@ pipeline {
             echo '--- K6 tests ---'
             script {
               docker.image('grafana/k6').inside {
-                // debug : liste tout pour vérifier la présence de tests/
+                // debug : liste tout pour yuyyt vérifier la présence de tests/
                 sh 'pwd && ls -R .'
                 sh '''
                   mkdir -p reports/k6
