@@ -1,16 +1,11 @@
 pipeline {
   agent any
-
   environment {
-    CYPRESS_CACHE = "${HOME}/.cache"
-    REGISTRY      = "docker.io"                       // ou ton registry privé
-    IMAGE_NAME    = "${REGISTRY}/azizgithub95/mon-deuxieme-projet-docker"
+    DOCKER_HOST = 'unix:///var/run/docker.sock'
   }
-
   stages {
     stage('Checkout') {
       steps {
-        cleanWs()
         checkout scm
       }
     }
@@ -21,11 +16,7 @@ pipeline {
           steps {
             echo '--- Cypress tests ---'
             script {
-              docker.image('cypress/included:12.17.4').inside(
-                "--entrypoint=\"\" " +
-                "-v ${CYPRESS_CACHE}:/root/.cache " +
-                "-v /var/run/docker.sock:/var/run/docker.sock"
-              ) {
+              docker.image('cypress/included:12.17.4').inside {
                 sh '''
                   npm ci --no-audit --progress=false
                   npx cypress install
@@ -40,7 +31,9 @@ pipeline {
           steps {
             echo '--- Newman tests ---'
             script {
-              docker.image('postman/newman:alpine').inside("--entrypoint=\"\"") {
+              docker.image('postman/newman:alpine').inside('--entrypoint=""') {
+                // debug : liste tout pour vérifier la présence de collections/
+                sh 'pwd && ls -R .'
                 sh '''
                   mkdir -p reports/newman
                   newman run collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
@@ -56,7 +49,9 @@ pipeline {
           steps {
             echo '--- K6 tests ---'
             script {
-              docker.image('grafana/k6').inside("--entrypoint=\"\"") {
+              docker.image('grafana/k6').inside {
+                // debug : liste tout pour vérifier la présence de tests/
+                sh 'pwd && ls -R .'
                 sh '''
                   mkdir -p reports/k6
                   k6 run tests/test_k6.js
@@ -69,14 +64,12 @@ pipeline {
     }
 
     stage('Build & Push Docker Image') {
-      when { branch 'main' }
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
-        echo '--- Building & pushing Docker image ---'
         script {
-          docker.withRegistry("https://${REGISTRY}", 'docker-hub-creds') {
-            def img = docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
+          docker.withRegistry('https://your-registry.example.com', 'credentialsId') {
+            def img = docker.build("mon-deuxieme-projet:${env.BUILD_NUMBER}")
             img.push()
-            img.push('latest')
           }
         }
       }
@@ -85,21 +78,10 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'reports/**/*.*', allowEmptyArchive: true
-    }
-    success {
-      emailext(
-        subject: "✅ Succès ${currentBuild.fullDisplayName}",
-        body:    "Build encore  réussi : ${env.BUILD_URL}",
-        to:      'aziztesteur@hotmail.com'
-      )
-    }
-    failure {
-      emailext(
-        subject: "❌ Échec ${currentBuild.fullDisplayName}",
-        body:    "Build huhuhuj échoué : ${env.BUILD_URL}",
-        to:      'aziztesteur@hotmail.com'
-      )
+      archiveArtifacts artifacts: 'reports/**', fingerprint: true
+      mail to: 'aziztesteur@hotmail.com',
+           subject: "Build ${currentBuild.fullDisplayName}",
+           body: "Statut: ${currentBuild.currentResult} — Voir les logs sur Jenkins."
     }
   }
 }
