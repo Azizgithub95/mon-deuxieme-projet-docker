@@ -2,7 +2,7 @@ stage('Tests') {
   parallel {
     stage('Cypress') {
       steps {
-        echo '--- Cypress tests ---'
+        echo '--- Cypress br tests ---'
         script {
           docker.image('cypress/included:12.17.4').inside {
             sh '''
