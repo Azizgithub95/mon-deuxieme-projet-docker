@@ -37,7 +37,7 @@
 +            echo '--- Running K6 tests ---'
 +            sh '''
 +              mkdir -p reports/k6
-+              # on exécute via le bon WD
++              # on exécute virea le bon WD
 +              k6 run tests/test_k6.js
 +            '''
 +          }
