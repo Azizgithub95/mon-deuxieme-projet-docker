@@ -1,7 +1,6 @@
 pipeline {
   agent any
 
-  // Variables réutilisables
   environment {
     IMAGE_NAME         = 'aziztesteur95100/mon-deuxieme-projet'
     DOCKER_CREDENTIALS = 'docker-hub-credentials'
@@ -34,13 +33,13 @@ pipeline {
 
         stage('Newman') {
           steps {
-            echo '--- Newman tests ---'
+            echo '--- Newman tests (with HTML reporter) ---'
             script {
               docker.image('postman/newman:alpine').inside('--entrypoint=""') {
-                // debug : affiche l’arborescence pour vérifier la présence du JSON
-                sh 'pwd && ls -R .'
-
                 sh '''
+                  # Installer le reporter HTML
+                  npm install -g newman-reporter-html
+
                   mkdir -p reports/newman
                   newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
                     --reporters cli,html \
@@ -56,9 +55,6 @@ pipeline {
             echo '--- K6 tests ---'
             script {
               docker.image('grafana/k6').inside {
-                // debug : affiche l’arborescence pour vérifier la présence du script
-                sh 'pwd && ls -R .'
-
                 sh '''
                   mkdir -p reports/k6
                   k6 run test_k6.js
@@ -75,9 +71,7 @@ pipeline {
       steps {
         script {
           docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS}") {
-            // on construit et tagge l’image
             def img = docker.build("${IMAGE_NAME}:v1.0")
-            // on pousse les tags v1.0 et latest
             img.push()
             img.push('latest')
           }
@@ -88,14 +82,12 @@ pipeline {
 
   post {
     always {
-      // archive tous les rapports de test
       archiveArtifacts artifacts: 'reports/**', fingerprint: true
 
-      // notification par mail
       mail to: 'aziz.aidel@hotmail.fr',
            subject: "Build ${currentBuild.fullDisplayName} — ${currentBuild.currentResult}",
            body: """\
-Le build est ENFIN terminé avec le statut : ${currentBuild.currentResult}.
+Le build est terminé avec le statut : ${currentBuild.currentResult}.
 Consulte les logs sur Jenkins pour plus de détails.
 """
     }
