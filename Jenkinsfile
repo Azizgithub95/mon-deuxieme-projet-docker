@@ -17,14 +17,14 @@ pipeline {
       agent {
         docker {
           image 'cypress/included:12.17.4'
-          args  '--user root:root' 
+          // override ENTRYPOINT pour exécuter directement nos commandes
+          args  '--entrypoint="" --user root:root'
         }
       }
       steps {
         sh '''
           npm ci --no-audit --progress=false
-          npx cypress install
-          npx cypress run
+          npx cypress run --record=false
         '''
       }
       post {
@@ -43,9 +43,7 @@ pipeline {
       }
       steps {
         sh '''
-          # Installe le reporter HTML avant d'exécuter Newman
           npm install -g newman-reporter-html
-
           mkdir -p reports/newman
           newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
             --reporters cli,html \
@@ -79,7 +77,7 @@ pipeline {
     }
 
     stage('Build & Push Docker Image') {
-      when { 
+      when {
         expression { currentBuild.currentResult == 'SUCCESS' }
       }
       steps {
@@ -96,10 +94,9 @@ pipeline {
 
   post {
     always {
-      // Envoi de mail si configuré : à adapter si tu utilises un plugin SMTP
       mail to: 'aziz.aidel@hotmail.fr',
-           subject: "Build ${currentBuild.fullDisplayName} — ${currentBuild.currentResult}",
-           body: "Le build est terminé avec le statut : ${currentBuild.currentResult}."
+           subject: "Build ${currentBuild.fullDisplayName} – ${currentBuild.currentResult}",
+           body: "Le build Jenkins s'est terminé avec le statut : ${currentBuild.currentResult}."
     }
   }
 }
