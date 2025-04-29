@@ -58,12 +58,12 @@ pipeline {
           steps {
             script {
               docker.image('grafana/k6').inside('--entrypoint=""') {
-                // Exécute le test K6 sans générer de rapport
+                // Exécution du test K6 sans génération de rapport
                 sh 'k6 run test_k6.js'
               }
             }
           }
-          // Pas de rapport à archiver pour K6
+          // Aucun archivage de rapport pour K6
         }
       }
     }
