@@ -87,7 +87,7 @@ pipeline {
       mail to: 'aziztesteur@hotmail.com',
            subject: "Build ${currentBuild.fullDisplayName} — ${currentBuild.currentResult}",
            body:  "Le build est enfin terminé avec le statut : ${currentBuild.currentResult}.\n" +
-                  "Consulte les logs sur Jenkins."
+                  "Consulte tous les logs sur Jenkins."
     }
   }
 }
