@@ -1,10 +1,15 @@
 pipeline {
   agent any
 
-  // Si tu as installé un JDK et NodeJS dans Jenkins (via Global Tool Configuration),
-  // adapte ici le nom de la config NodeJS (ex. "NodeJS 18").
   tools {
     nodejs 'NodeJS 18'
+  }
+
+  environment {
+    // Remplace par ton registry et tes credentials
+    DOCKER_REGISTRY = 'https://mon-registry.example.com'
+    DOCKER_CREDENTIALS_ID = 'docker-credentials-id'
+    IMAGE_NAME = "mon-image"
   }
 
   stages {
@@ -16,14 +21,12 @@ pipeline {
 
     stage('Install dependencies') {
       steps {
-        // Installe tout une fois pour Cypress + Newman
         sh 'npm ci --no-audit --progress=false'
       }
     }
 
     stage('Cypress') {
       steps {
-        // Lance Cypress **sans** Docker
         sh 'npx cypress run --record=false'
       }
       post {
@@ -35,7 +38,6 @@ pipeline {
 
     stage('Newman') {
       steps {
-        // Installe Newman globalement si besoin
         sh 'npm install -g newman'
         sh '''
           mkdir -p reports/newman
@@ -51,7 +53,7 @@ pipeline {
 
     stage('K6') {
       steps {
-        // Monte ton workspace dans un container k6 juste pour exécuter le test
+        // Exécution de K6 dans son container, pas de rapport HTML
         sh '''
           docker run --rm \
             -v "$PWD":/scripts \
@@ -68,8 +70,8 @@ pipeline {
       }
       steps {
         script {
-          docker.withRegistry('https://mon-registry.example.com', 'docker-credentials-id') {
-            def img = docker.build("mon-image:${env.BUILD_NUMBER}")
+          docker.withRegistry(env.DOCKER_REGISTRY, env.DOCKER_CREDENTIALS_ID) {
+            def img = docker.build("${env.IMAGE_NAME}:${env.BUILD_NUMBER}")
             img.push('latest')
           }
         }
