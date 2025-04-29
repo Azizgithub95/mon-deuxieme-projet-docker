@@ -1,11 +1,11 @@
 pipeline {
   agent any
 
-  // Variables d’environnement partagées
+  // Variables réutilisables
   environment {
-    DOCKER_HOST        = 'unix:///var/run/docker.sock'
-    IMAGE_NAME         = 'aziztesteur95100/mon-deuxieme-projet-docker'
+    IMAGE_NAME         = 'aziztesteur95100/mon-deuxieme-projet'
     DOCKER_CREDENTIALS = 'docker-hub-credentials'
+    DOCKER_HOST        = 'unix:///var/run/docker.sock'
   }
 
   stages {
@@ -31,15 +31,18 @@ pipeline {
             }
           }
         }
+
         stage('Newman') {
           steps {
             echo '--- Newman tests ---'
             script {
               docker.image('postman/newman:alpine').inside('--entrypoint=""') {
+                // debug : affiche l’arborescence pour vérifier la présence du JSON
                 sh 'pwd && ls -R .'
+
                 sh '''
                   mkdir -p reports/newman
-                  newman run collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
+                  newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
                     --reporters cli,html \
                     --reporter-html-export reports/newman/newman-report.html
                 '''
@@ -47,15 +50,18 @@ pipeline {
             }
           }
         }
+
         stage('K6') {
           steps {
             echo '--- K6 tests ---'
             script {
               docker.image('grafana/k6').inside {
+                // debug : affiche l’arborescence pour vérifier la présence du script
                 sh 'pwd && ls -R .'
+
                 sh '''
                   mkdir -p reports/k6
-                  k6 run tests/test_k6.js
+                  k6 run test_k6.js
                 '''
               }
             }
@@ -68,10 +74,11 @@ pipeline {
       when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Authentifie-toi et pousse deux tags : v1.0 + latest
           docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS}") {
+            // on construit et tagge l’image
             def img = docker.build("${IMAGE_NAME}:v1.0")
-            img.push('v1.0')
+            // on pousse les tags v1.0 et latest
+            img.push()
             img.push('latest')
           }
         }
@@ -81,13 +88,16 @@ pipeline {
 
   post {
     always {
-      // Archive tous les rapports générés
+      // archive tous les rapports de test
       archiveArtifacts artifacts: 'reports/**', fingerprint: true
-      // Envoie une notification par mail
-      mail to: 'aziztesteur@hotmail.com',
+
+      // notification par mail
+      mail to: 'aziz.aidel@hotmail.fr',
            subject: "Build ${currentBuild.fullDisplayName} — ${currentBuild.currentResult}",
-           body:  "Le build est ENFIN terminé avec le statut : ${currentBuild.currentResult}.\n" +
-                  "Consulte tous les logs sur Jenkins."
+           body: """\
+Le build est terminé avec le statut : ${currentBuild.currentResult}.
+Consulte les logs sur Jenkins pour plus de détails.
+"""
     }
   }
 }
