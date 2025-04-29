@@ -1,10 +1,12 @@
 pipeline {
   agent any
-  environment {
-    // Vos variables d’environnement, si besoin
-    REGISTRY = 'mon-registry.example.com'
-    IMAGE_NAME = 'mon-image'
+
+  // Si tu as installé un JDK et NodeJS dans Jenkins (via Global Tool Configuration),
+  // adapte ici le nom de la config NodeJS (ex. "NodeJS 18").
+  tools {
+    nodejs 'NodeJS 18'
   }
+
   stages {
     stage('Checkout') {
       steps {
@@ -12,63 +14,62 @@ pipeline {
       }
     }
 
-    stage('Tests (parallel)') {
-      parallel {
-        stage('Cypress') {
-          agent {
-            docker {
-              image 'cypress/included:12.17.4'
-              args  '--entrypoint="" -u root'
-            }
-          }
-          steps {
-            sh 'npm ci --no-audit --progress=false'
-            sh 'npx cypress run --record=false'
-            archiveArtifacts artifacts: 'cypress/results/**/*', allowEmptyArchive: true
-          }
-        }
+    stage('Install dependencies') {
+      steps {
+        // Installe tout une fois pour Cypress + Newman
+        sh 'npm ci --no-audit --progress=false'
+      }
+    }
 
-        stage('Newman') {
-          agent {
-            docker {
-              image 'postman/newman:alpine'
-              args  '--entrypoint="" -u root'
-            }
-          }
-          steps {
-            sh 'npm ci --no-audit --progress=false'
-            sh '''
-              mkdir -p reports/newman
-              newman run MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli
-            '''
-            archiveArtifacts artifacts: 'reports/newman/**/*', allowEmptyArchive: true
-          }
+    stage('Cypress') {
+      steps {
+        // Lance Cypress **sans** Docker
+        sh 'npx cypress run --record=false'
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'cypress/results/**/*', allowEmptyArchive: true
         }
+      }
+    }
 
-        stage('K6') {
-          agent {
-            docker {
-              image 'grafana/k6'
-              args  '--entrypoint="" -u root'
-            }
-          }
-          steps {
-            // On exécute simplement K6, sans génération de rapport
-            sh 'k6 run test_k6.js'
-          }
+    stage('Newman') {
+      steps {
+        // Installe Newman globalement si besoin
+        sh 'npm install -g newman'
+        sh '''
+          mkdir -p reports/newman
+          newman run MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'reports/newman/**/*', allowEmptyArchive: true
         }
+      }
+    }
+
+    stage('K6') {
+      steps {
+        // Monte ton workspace dans un container k6 juste pour exécuter le test
+        sh '''
+          docker run --rm \
+            -v "$PWD":/scripts \
+            -w /scripts \
+            grafana/k6 \
+            run test_k6.js
+        '''
       }
     }
 
     stage('Build & Push Docker Image') {
       when {
-        // Ne build & push que si tout est OK
         expression { currentBuild.currentResult == 'SUCCESS' }
       }
       steps {
         script {
-          docker.withRegistry("https://${env.REGISTRY}", 'docker-credentials-id') {
-            def img = docker.build("${env.IMAGE_NAME}:${env.BUILD_NUMBER}")
+          docker.withRegistry('https://mon-registry.example.com', 'docker-credentials-id') {
+            def img = docker.build("mon-image:${env.BUILD_NUMBER}")
             img.push('latest')
           }
         }
@@ -78,7 +79,7 @@ pipeline {
 
   post {
     always {
-      echo "🔔 Pipeline terminé avec : ${currentBuild.currentResult}"
+      echo "🔔 Pipeline terminé avec le statut : ${currentBuild.currentResult}"
     }
   }
 }
