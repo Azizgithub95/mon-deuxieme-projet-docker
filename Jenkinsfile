@@ -1,9 +1,10 @@
 pipeline {
   agent any
 
-  // Variables réutilisables
+  // Variables d’environnement partagées
   environment {
-    IMAGE_NAME = 'aziztesteur95100/mon-deuxieme-projet'
+    DOCKER_HOST        = 'unix:///var/run/docker.sock'
+    IMAGE_NAME         = 'aziztesteur95100/mon-deuxieme-projet-docker'
     DOCKER_CREDENTIALS = 'docker-hub-credentials'
   }
 
@@ -17,41 +18,61 @@ pipeline {
     stage('Tests') {
       parallel {
         stage('Cypress') {
-          agent { docker { image 'cypress/included:12.17.4' } }
           steps {
-            sh 'npm ci --no-audit --progress=false'
-            sh 'npx cypress run'
+            echo '--- Cypress tests ---'
+            script {
+              docker.image('cypress/included:12.17.4').inside {
+                sh '''
+                  npm ci --no-audit --progress=false
+                  npx cypress install
+                  npx cypress run
+                '''
+              }
+            }
           }
         }
-
         stage('Newman') {
-          agent { docker { image 'postman/newman:alpine' } }
           steps {
-            sh 'npm ci --no-audit --progress=false'
-            sh 'newman run MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli,html --reporter-html-export reports/newman/newman-report.html'
+            echo '--- Newman tests ---'
+            script {
+              docker.image('postman/newman:alpine').inside('--entrypoint=""') {
+                sh 'pwd && ls -R .'
+                sh '''
+                  mkdir -p reports/newman
+                  newman run collections/MOCK_AZIZ_SERVEUR.postman_collection.json \
+                    --reporters cli,html \
+                    --reporter-html-export reports/newman/newman-report.html
+                '''
+              }
+            }
           }
         }
-
         stage('K6') {
-          agent { docker { image 'grafana/k6' } }
           steps {
-            sh 'mkdir -p reports/k6'
-            sh 'k6 run test_k6.js'
+            echo '--- K6 tests ---'
+            script {
+              docker.image('grafana/k6').inside {
+                sh 'pwd && ls -R .'
+                sh '''
+                  mkdir -p reports/k6
+                  k6 run tests/test_k6.js
+                '''
+              }
+            }
           }
         }
       }
     }
 
     stage('Build & Push Docker Image') {
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
       steps {
         script {
-          // Build l’image avec un tag basé sur le numéro de build Jenkins
-          def img = docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
-
-          // Authentification et push sur Docker Hub
-          docker.withRegistry('https://registry.hub.docker.com', DOCKER_CREDENTIALS) {
-            img.push()          // tag :${BUILD_NUMBER}
-            img.push('latest')  // tag :latest
+          // Authentifie-toi et pousse deux tags : v1.0 + latest
+          docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS}") {
+            def img = docker.build("${IMAGE_NAME}:v1.0")
+            img.push('v1.0')
+            img.push('latest')
           }
         }
       }
@@ -61,7 +82,12 @@ pipeline {
   post {
     always {
       // Archive tous les rapports générés
-     archiveArtifacts artifacts: 'reports/**',     fingerprint: true
+      archiveArtifacts artifacts: 'reports/**', fingerprint: true
+      // Envoie une notification par mail
+      mail to: 'aziztesteur@hotmail.com',
+           subject: "Build ${currentBuild.fullDisplayName} — ${currentBuild.currentResult}",
+           body:  "Le build est terminé avec le statut : ${currentBuild.currentResult}.\n" +
+                  "Consulte les logs sur Jenkins."
     }
   }
 }
