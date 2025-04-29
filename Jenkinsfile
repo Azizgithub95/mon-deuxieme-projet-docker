@@ -4,64 +4,76 @@ pipeline {
   environment {
     IMAGE_NAME         = 'aziztesteur95100/mon-deuxieme-projet'
     DOCKER_CREDENTIALS = 'docker-hub-credentials'
-    DOCKER_HOST        = 'unix:///var/run/docker.sock'
   }
 
   stages {
-    stage('Checkout SCM') {
+    stage('Checkout') {
       steps {
         checkout scm
       }
     }
 
-    stage('Tests') {
-      parallel {
-        stage('Cypress') {
-          steps {
-            echo '--- Cypress tests ---'
-            script {
-              docker.image('cypress/included:12.17.4').inside {
-                sh '''
-                  npm ci --no-audit --progress=false
-                  npx cypress install
-                  npx cypress run
-                '''
-              }
-            }
-          }
+    stage('Cypress tests') {
+      agent {
+        docker {
+          image 'cypress/included:12.17.4'
+          args  '--user root:root' // si besoin d'installer des paquets en root
         }
-
-        stage('Newman') {
-          steps {
-            echo '--- Newman tests (with HTML reporter) ---'
-            script {
-              docker.image('postman/newman:alpine').inside('--entrypoint=""') {
-                sh '''
-                  # Installer le reporter HTML
-                  npm install -g newman-reporter-html
-
-                  mkdir -p reports/newman
-                  newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
-                    --reporters cli,html \
-                    --reporter-html-export reports/newman/newman-report.html
-                '''
-              }
-            }
-          }
+      }
+      steps {
+        sh '''
+          npm ci --no-audit --progress=false
+          npx cypress install
+          npx cypress run
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'cypress/videos/**/*.mp4', allowEmptyArchive: true
         }
+      }
+    }
 
-        stage('K6') {
-          steps {
-            echo '--- K6 tests ---'
-            script {
-              docker.image('grafana/k6').inside {
-                sh '''
-                  mkdir -p reports/k6
-                  k6 run test_k6.js
-                '''
-              }
-            }
-          }
+    stage('Newman tests') {
+      agent {
+        docker {
+          image 'postman/newman:alpine'
+          args  '--entrypoint=""'  // pour pouvoir lancer npm avant newman
+        }
+      }
+      steps {
+        sh '''
+          # Installe le reporter HTML
+          npm install -g newman-reporter-html
+
+          mkdir -p reports/newman
+          newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
+            --reporters cli,html \
+            --reporter-html-export reports/newman/newman-report.html
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'reports/newman/*.html', allowEmptyArchive: true
+        }
+      }
+    }
+
+    stage('K6 tests') {
+      agent {
+        docker {
+          image 'grafana/k6'
+        }
+      }
+      steps {
+        sh '''
+          mkdir -p reports/k6
+          k6 run test_k6.js --out json=reports/k6/summary.json
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'reports/k6/*.json', allowEmptyArchive: true
         }
       }
     }
@@ -82,14 +94,9 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'reports/**', fingerprint: true
-
       mail to: 'aziz.aidel@hotmail.fr',
            subject: "Build ${currentBuild.fullDisplayName} — ${currentBuild.currentResult}",
-           body: """\
-Le build est terminé avec le statut : ${currentBuild.currentResult}.
-Consulte les logs sur Jenkins pour plus de détails.
-"""
+           body: "Le build est enfin terminé avec le statut : ${currentBuild.currentResult}. Consulte Jenkins pour les logs complets."
     }
   }
 }
