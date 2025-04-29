@@ -1,15 +1,17 @@
 pipeline {
-  agent any
+  agent none
 
   environment {
-    DOCKER_REGISTRY = 'mon-registry'
-    IMAGE_NAME      = 'mon-deuxieme-projet-docker'
-    TAG_VERSION     = 'v1.0'
-    TAG_LATEST      = 'latest'
+    REGISTRY   = "mon-registry"
+    IMAGE_NAME = "mon-deuxieme-projet-docker"
+    VERSION    = "v1.0"
+    LATEST     = "latest"
   }
 
   stages {
-    stage('Checkout SCM') {
+
+    stage('Checkout') {
+      agent any
       steps {
         checkout scm
       }
@@ -17,6 +19,7 @@ pipeline {
 
     stage('Tests (parallel)') {
       parallel {
+
         stage('Cypress') {
           agent {
             docker {
@@ -66,10 +69,11 @@ pipeline {
             }
           }
           steps {
-            // juste exécuter le test, sans exporter ni archiver de rapport
+            // exécute juste le test, sans exporter ni archiver de rapport
             sh 'k6 run test_k6.js'
           }
         }
+
       }
     }
 
@@ -77,16 +81,18 @@ pipeline {
       when {
         expression { currentBuild.currentResult == 'SUCCESS' }
       }
+      agent any
       steps {
         script {
-          docker.build("${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG_VERSION}")
-          docker.withRegistry("https://${DOCKER_REGISTRY}") {
-            docker.image("${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG_VERSION}").push()
-            docker.image("${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG_VERSION}").push("${TAG_LATEST}")
+          def img = docker.build("${REGISTRY}/${IMAGE_NAME}:${VERSION}")
+          docker.withRegistry("https://${REGISTRY}") {
+            img.push()
+            img.push(LATEST)
           }
         }
       }
     }
+
   }
 
   post {
