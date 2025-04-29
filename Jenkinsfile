@@ -9,22 +9,24 @@ pipeline {
   }
 
   stages {
-    stage('Checkout') {
+    stage('Checkout SCM') {
       steps {
         checkout scm
       }
     }
 
-    stage('Tests') {
+    stage('Tests (parallel)') {
       parallel {
         stage('Cypress') {
-          steps {
-            script {
-              docker.image('cypress/included:12.17.4').inside('--entrypoint=""') {
-                sh 'npm ci --no-audit --progress=false'
-                sh 'npx cypress run --record=false'
-              }
+          agent {
+            docker {
+              image 'cypress/included:12.17.4'
+              args  '--entrypoint=""'
             }
+          }
+          steps {
+            sh 'npm ci --no-audit --progress=false'
+            sh 'npx cypress run --record=false'
           }
           post {
             always {
@@ -34,18 +36,20 @@ pipeline {
         }
 
         stage('Newman') {
-          steps {
-            script {
-              docker.image('postman/newman:alpine').inside('--entrypoint=""') {
-                sh 'npm install -g newman-reporter-html'
-                sh '''
-                  mkdir -p reports/newman
-                  newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
-                    --reporters cli,html \
-                    --reporter-html-export reports/newman/newman-report.html
-                '''
-              }
+          agent {
+            docker {
+              image 'postman/newman:alpine'
+              args  '--entrypoint=""'
             }
+          }
+          steps {
+            sh 'npm install -g newman-reporter-html'
+            sh '''
+              mkdir -p reports/newman
+              newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
+                --reporters cli,html \
+                --reporter-html-export reports/newman/newman-report.html
+            '''
           }
           post {
             always {
@@ -55,15 +59,16 @@ pipeline {
         }
 
         stage('K6') {
-          steps {
-            script {
-              docker.image('grafana/k6').inside('--entrypoint=""') {
-                // Exécution du test K6 sans génération de rapport
-                sh 'k6 run test_k6.js'
-              }
+          agent {
+            docker {
+              image 'grafana/k6'
+              args  '--entrypoint=""'
             }
           }
-          // Aucun archivage de rapport pour K6
+          steps {
+            // juste exécuter le test, sans exporter ni archiver de rapport
+            sh 'k6 run test_k6.js'
+          }
         }
       }
     }
@@ -73,19 +78,20 @@ pipeline {
         expression { currentBuild.currentResult == 'SUCCESS' }
       }
       steps {
-        sh '''
-          docker build -t $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_VERSION .
-          docker tag  $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_VERSION $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_LATEST
-          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_VERSION
-          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_LATEST
-        '''
+        script {
+          docker.build("${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG_VERSION}")
+          docker.withRegistry("https://${DOCKER_REGISTRY}") {
+            docker.image("${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG_VERSION}").push()
+            docker.image("${DOCKER_REGISTRY}/${IMAGE_NAME}:${TAG_VERSION}").push("${TAG_LATEST}")
+          }
+        }
       }
     }
   }
 
   post {
     always {
-      echo "Pipeline terminé envvvvvn avec le statut : ${currentBuild.currentResult}"
+      echo "🔔 Pipeline terminé avec le statut : ${currentBuild.currentResult}"
     }
   }
 }
