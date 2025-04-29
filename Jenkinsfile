@@ -17,7 +17,7 @@ pipeline {
       agent {
         docker {
           image 'cypress/included:12.17.4'
-          args  '--user root:root' // si besoin d'installer des paquets en root
+          args  '--user root:root' 
         }
       }
       steps {
@@ -38,12 +38,12 @@ pipeline {
       agent {
         docker {
           image 'postman/newman:alpine'
-          args  '--entrypoint=""'  // pour pouvoir lancer npm avant newman
+          args  '--entrypoint=""'
         }
       }
       steps {
         sh '''
-          # Installe le reporter HTML
+          # Installe le reporter HTML avant d'exécuter Newman
           npm install -g newman-reporter-html
 
           mkdir -p reports/newman
@@ -79,7 +79,9 @@ pipeline {
     }
 
     stage('Build & Push Docker Image') {
-      when { expression { currentBuild.currentResult == 'SUCCESS' } }
+      when { 
+        expression { currentBuild.currentResult == 'SUCCESS' }
+      }
       steps {
         script {
           docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS}") {
@@ -94,9 +96,10 @@ pipeline {
 
   post {
     always {
+      // Envoi de mail si configuré : à adapter si tu utilises un plugin SMTP
       mail to: 'aziz.aidel@hotmail.fr',
            subject: "Build ${currentBuild.fullDisplayName} — ${currentBuild.currentResult}",
-           body: "Le build est enfin terminé avec le statut : ${currentBuild.currentResult}. Consulte Jenkins pour les logs complets."
+           body: "Le build est terminé avec le statut : ${currentBuild.currentResult}."
     }
   }
 }
