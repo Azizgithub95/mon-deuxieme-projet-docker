@@ -2,8 +2,11 @@ pipeline {
   agent any
 
   environment {
-    IMAGE_NAME         = 'aziztesteur95100/mon-deuxieme-projet'
-    DOCKER_CREDENTIALS = 'docker-hub-credentials'
+    // Vos variables d’environnement, par ex. DOCKER_REGISTRY, IMAGE_NAME, etc.
+    DOCKER_REGISTRY = 'mon-registry'
+    IMAGE_NAME      = 'mon-deuxieme-projet-docker'
+    TAG_LATEST      = 'latest'
+    TAG_VERSION     = 'v1.0'
   }
 
   stages {
@@ -13,90 +16,100 @@ pipeline {
       }
     }
 
-    stage('Cypress tests') {
-      agent {
-        docker {
-          image 'cypress/included:12.17.4'
-          // override ENTRYPOINT pour exécuter directement nos commandes
-          args  '--entrypoint="" --user root:root'
-        }
-      }
-      steps {
-        sh '''
-          npm ci --no-audit --progress=false
-          npx cypress run --record=false
-        '''
-      }
-      post {
-        always {
-          archiveArtifacts artifacts: 'cypress/videos/**/*.mp4', allowEmptyArchive: true
-        }
-      }
-    }
+    stage('Tests') {
+      parallel {
+        stage('Cypress') {
+          steps {
+            script {
+              // Vérifie que l'image est là
+              sh "docker inspect -f . cypress/included:12.17.4"
 
-    stage('Newman tests') {
-      agent {
-        docker {
-          image 'postman/newman:alpine'
-          args  '--entrypoint=""'
+              // Démarre le conteneur Cypress en désactivant son ENTRYPOINT
+              docker.image('cypress/included:12.17.4')
+                    .inside("--entrypoint=\"\" -u root") {
+                sh 'npm ci --no-audit --progress=false'
+                // Lance Cypress sans le flag -c
+                sh 'npx cypress run --record=false'
+              }
+            }
+          }
+          post {
+            always {
+              archiveArtifacts artifacts: 'cypress/videos/**, cypress/screenshots/**', allowEmptyArchive: true
+            }
+          }
         }
-      }
-      steps {
-        sh '''
-          npm install -g newman-reporter-html
-          mkdir -p reports/newman
-          newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
-            --reporters cli,html \
-            --reporter-html-export reports/newman/newman-report.html
-        '''
-      }
-      post {
-        always {
-          archiveArtifacts artifacts: 'reports/newman/*.html', allowEmptyArchive: true
-        }
-      }
-    }
 
-    stage('K6 tests') {
-      agent {
-        docker {
-          image 'grafana/k6'
+        stage('Newman') {
+          steps {
+            script {
+              sh "docker inspect -f . postman/newman:alpine"
+
+              docker.image('postman/newman:alpine')
+                    .inside("--entrypoint=\"\"") {
+                // Installer le reporter HTML au besoin
+                sh 'npm install -g newman-reporter-html'
+                sh '''
+                  mkdir -p reports/newman
+                  newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
+                    --reporters cli,html \
+                    --reporter-html-export reports/newman/newman-report.html
+                '''
+              }
+            }
+          }
+          post {
+            always {
+              archiveArtifacts artifacts: 'reports/newman/**/*.html', allowEmptyArchive: true
+            }
+          }
         }
-      }
-      steps {
-        sh '''
-          mkdir -p reports/k6
-          k6 run test_k6.js --out json=reports/k6/summary.json
-        '''
-      }
-      post {
-        always {
-          archiveArtifacts artifacts: 'reports/k6/*.json', allowEmptyArchive: true
+
+        stage('K6') {
+          steps {
+            script {
+              sh "docker inspect -f . grafana/k6"
+
+              docker.image('grafana/k6')
+                    .inside("--entrypoint=\"\"") {
+                sh 'npm ci --no-audit --progress=false'
+                sh '''
+                  mkdir -p reports/k6
+                  k6 run test_k6.js --summary-export=reports/k6/summary.json
+                '''
+              }
+            }
+          }
+          post {
+            always {
+              archiveArtifacts artifacts: 'reports/k6/summary.json', allowEmptyArchive: true
+            }
+          }
         }
       }
     }
 
     stage('Build & Push Docker Image') {
       when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
+        allOf {
+          expression { currentBuild.currentResult == 'SUCCESS' }
+        }
       }
       steps {
-        script {
-          docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS}") {
-            def img = docker.build("${IMAGE_NAME}:v1.0")
-            img.push()
-            img.push('latest')
-          }
-        }
+        sh '''
+          docker build -t $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_VERSION .
+          docker tag $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_VERSION $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_LATEST
+          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_VERSION
+          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$TAG_LATEST
+        '''
       }
     }
   }
 
   post {
     always {
-      mail to: 'aziz.aidel@hotmail.fr',
-           subject: "Build ${currentBuild.fullDisplayName} – ${currentBuild.currentResult}",
-           body: "Le build Jenkins s'est terminé avec le statut : ${currentBuild.currentResult}."
+      // Vous pouvez envoyer un email ou autre notification ici
+      echo "Pipeline terminé avec le statut ${currentBuild.currentResult}"
     }
   }
 }
