@@ -9,7 +9,6 @@ pipeline {
   }
 
   stages {
-
     stage('Checkout') {
       agent any
       steps {
@@ -31,7 +30,6 @@ pipeline {
 
     stage('Tests (parallel)') {
       parallel {
-
         stage('Cypress') {
           agent {
             docker {
@@ -40,6 +38,7 @@ pipeline {
             }
           }
           steps {
+            // Les dependencies sont déjà dans workspace
             sh 'npx cypress run --record=false'
           }
           post {
@@ -83,7 +82,6 @@ pipeline {
             sh 'k6 run test_k6.js'
           }
         }
-
       }
     }
 
@@ -102,12 +100,11 @@ pipeline {
         }
       }
     }
-
   }
 
   post {
     always {
-      echo "🔔 Pipeline encore terminé avec le statut : ${currentBuild.currentResult}"
+      echo "🔔 Pipeline terminé avec le statut : ${currentBuild.currentResult}"
     }
   }
 }
