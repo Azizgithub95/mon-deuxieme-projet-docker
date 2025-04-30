@@ -1,4 +1,3 @@
-```groovy
 pipeline {
   agent none
 
@@ -19,7 +18,12 @@ pipeline {
     }
 
     stage('Install dependencies') {
-      agent any
+      agent {
+        docker {
+          image 'node:18'
+          args  '--entrypoint=""'
+        }
+      }
       steps {
         sh 'npm ci --no-audit --progress=false'
       }
@@ -36,7 +40,6 @@ pipeline {
             }
           }
           steps {
-            sh 'npm ci --no-audit --progress=false'
             sh 'npx cypress run --record=false'
           }
           post {
@@ -54,15 +57,17 @@ pipeline {
             }
           }
           steps {
-            sh 'npm install -g newman'
+            sh 'npm install -g newman-reporter-html'
             sh '''
               mkdir -p reports/newman
-              newman run MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli
+              newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
+                --reporters cli,html \
+                --reporter-html-export reports/newman/newman-report.html
             '''
           }
           post {
             always {
-              archiveArtifacts artifacts: 'reports/newman/**/*', allowEmptyArchive: true
+              archiveArtifacts artifacts: 'reports/newman/**/*.html', allowEmptyArchive: true
             }
           }
         }
@@ -106,4 +111,3 @@ pipeline {
     }
   }
 }
-```
