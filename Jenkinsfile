@@ -1,27 +1,39 @@
 pipeline {
-  agent any
+  agent none
 
   environment {
-    DOCKER_REGISTRY         = 'https://mon-registry.example.com'
-    DOCKER_CREDENTIALS_ID   = 'docker-credentials-id'
-    IMAGE_NAME              = 'mon-image'
+    DOCKER_REGISTRY       = 'https://mon-registry.example.com'
+    DOCKER_CREDENTIALS_ID = 'docker-credentials-id'
+    IMAGE_NAME            = 'mon-image'
   }
 
   stages {
     stage('Checkout') {
+      agent any
       steps {
         checkout scm
       }
     }
 
     stage('Install dependencies') {
+      agent {
+        docker {
+          image 'node:18'
+          args  '-u root:root'  // pour éviter d’éventuels problèmes de permissions
+        }
+      }
       steps {
-        // npm doit être dispo sur l'agent
         sh 'npm ci --no-audit --progress=false'
       }
     }
 
     stage('Cypress') {
+      agent {
+        docker {
+          image 'node:18'
+          args  '-u root:root'
+        }
+      }
       steps {
         sh 'npx cypress run --record=false'
       }
@@ -33,6 +45,12 @@ pipeline {
     }
 
     stage('Newman') {
+      agent {
+        docker {
+          image 'node:18'
+          args  '-u root:root'
+        }
+      }
       steps {
         sh 'npm install -g newman'
         sh '''
@@ -48,8 +66,8 @@ pipeline {
     }
 
     stage('K6') {
+      agent any
       steps {
-        // pas de rapport HTML, juste la console
         sh '''
           docker run --rm \
             -v "$PWD":/scripts \
@@ -64,6 +82,7 @@ pipeline {
       when {
         expression { currentBuild.currentResult == 'SUCCESS' }
       }
+      agent any
       steps {
         script {
           docker.withRegistry(env.DOCKER_REGISTRY, env.DOCKER_CREDENTIALS_ID) {
