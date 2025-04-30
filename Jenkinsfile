@@ -15,15 +15,18 @@ pipeline {
       }
     }
 
-    stage('Install dependencies') {
+    stage('Install dependencies & Cypress binary') {
       agent {
         docker {
           image 'node:18'
-          args  '-u root:root'  // pour éviter d’éventuels problèmes de permissions
+          args  '-u root:root'
         }
       }
       steps {
-        sh 'npm ci --no-audit --progress=false'
+        sh '''
+          npm ci --no-audit --progress=false
+          npx cypress install
+        '''
       }
     }
 
@@ -52,8 +55,8 @@ pipeline {
         }
       }
       steps {
-        sh 'npm install -g newman'
         sh '''
+          npm install -g newman
           mkdir -p reports/newman
           newman run MOCK_AZIZ_SERVEUR.postman_collection.json --reporters cli
         '''
