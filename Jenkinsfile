@@ -16,18 +16,6 @@ pipeline {
       }
     }
 
-    stage('Install dependencies') {
-      agent {
-        docker {
-          image 'node:18'
-          args  '--entrypoint=""'
-        }
-      }
-      steps {
-        sh 'npm ci --no-audit --progress=false'
-      }
-    }
-
     stage('Tests (parallel)') {
       parallel {
         stage('Cypress') {
@@ -38,7 +26,7 @@ pipeline {
             }
           }
           steps {
-            // Les dependencies sont déjà dans workspace
+            sh 'npm ci --no-audit --progress=false'
             sh 'npx cypress run --record=false'
           }
           post {
@@ -56,6 +44,7 @@ pipeline {
             }
           }
           steps {
+            sh 'npm ci --no-audit --progress=false'
             sh 'npm install -g newman-reporter-html'
             sh '''
               mkdir -p reports/newman
