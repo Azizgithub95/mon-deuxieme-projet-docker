@@ -11,9 +11,7 @@ pipeline {
   stages {
     stage('Checkout') {
       agent any
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
     stage('Tests (parallel)') {
@@ -22,12 +20,12 @@ pipeline {
           agent {
             docker {
               image 'cypress/included:12.17.4'
-              args  '--entrypoint=""'
+              // on enlève l'entrypoint custom ici !
             }
           }
           steps {
             sh 'npm ci --no-audit --progress=false'
-            sh 'npx cypress run --record=false'
+            sh 'npx cypress run --record false'
           }
           post {
             always {
@@ -75,9 +73,7 @@ pipeline {
     }
 
     stage('Build & Push Docker Image') {
-      when {
-        expression { currentBuild.currentResult == 'SUCCESS' }
-      }
+      when { expression { currentBuild.currentResult == 'SUCCESS' } }
       agent any
       steps {
         script {
