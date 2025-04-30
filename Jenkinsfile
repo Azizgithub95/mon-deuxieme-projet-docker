@@ -111,7 +111,7 @@ pipeline {
 
   post {
     always {
-      echo "🔔 Pipeline terminé avec le statut : ${currentBuild.currentResult}"
+      echo "🔔 Pipeline encore terminé avec le statut : ${currentBuild.currentResult}"
     }
   }
 }
