@@ -9,22 +9,30 @@ pipeline {
   }
 
   stages {
+
     stage('Checkout') {
       agent any
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage('Tests (parallel)') {
       parallel {
+
         stage('Cypress') {
           agent {
             docker {
-              image 'cypress/included:12.17.4'
-              // on enlève l'entrypoint custom ici !
+              image 'node:18'
+              args  '--entrypoint=""'
             }
           }
           steps {
+            // Installe les dépendances de ton projet
             sh 'npm ci --no-audit --progress=false'
+            // Télécharge/installe le binaire Cypress
+            sh 'npx cypress install'
+            // Lance les tests
             sh 'npx cypress run --record false'
           }
           post {
@@ -47,8 +55,8 @@ pipeline {
             sh '''
               mkdir -p reports/newman
               newman run MOCK_AZIZ_SERVEUR.postman_collection.json \
-                --reporters cli,html \
-                --reporter-html-export reports/newman/newman-report.html
+                     --reporters cli,html \
+                     --reporter-html-export reports/newman/newman-report.html
             '''
           }
           post {
@@ -69,6 +77,7 @@ pipeline {
             sh 'k6 run test_k6.js'
           }
         }
+
       }
     }
 
@@ -85,6 +94,7 @@ pipeline {
         }
       }
     }
+
   }
 
   post {
