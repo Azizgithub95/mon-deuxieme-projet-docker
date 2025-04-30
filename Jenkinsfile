@@ -1,15 +1,10 @@
 pipeline {
   agent any
 
-  tools {
-    nodejs 'NodeJS 18'
-  }
-
   environment {
-    // Remplace par ton registry et tes credentials
-    DOCKER_REGISTRY = 'https://mon-registry.example.com'
-    DOCKER_CREDENTIALS_ID = 'docker-credentials-id'
-    IMAGE_NAME = "mon-image"
+    DOCKER_REGISTRY         = 'https://mon-registry.example.com'
+    DOCKER_CREDENTIALS_ID   = 'docker-credentials-id'
+    IMAGE_NAME              = 'mon-image'
   }
 
   stages {
@@ -21,6 +16,7 @@ pipeline {
 
     stage('Install dependencies') {
       steps {
+        // npm doit être dispo sur l'agent
         sh 'npm ci --no-audit --progress=false'
       }
     }
@@ -53,7 +49,7 @@ pipeline {
 
     stage('K6') {
       steps {
-        // Exécution de K6 dans son container, pas de rapport HTML
+        // pas de rapport HTML, juste la console
         sh '''
           docker run --rm \
             -v "$PWD":/scripts \
@@ -81,7 +77,7 @@ pipeline {
 
   post {
     always {
-      echo "🔔 Pipeline encore terminé avec le statut : ${currentBuild.currentResult}"
+      echo "🔔 Pipeline terminé avec le statut : ${currentBuild.currentResult}"
     }
   }
 }
