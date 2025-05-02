@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    DOCKERHUB_REPO = "azizgithub95/mon-deuxieme-projet-docker"
+    DOCKERHUB_REPO = "aziztesteur95100/mon-deuxieme-projet-docker"
   }
 
   stages {
@@ -13,16 +13,16 @@ pipeline {
     stage('Build') {
       steps {
         script {
-          // build l'image et la tague avec le numéro de build
+          // build :<build_number>
           docker.build("${DOCKERHUB_REPO}:${env.BUILD_NUMBER}")
         }
       }
     }
 
-    stage('Push to Docker Hub') {
+    stage('Push') {
       steps {
         script {
-          // '' => Docker Hub par défaut, 'docker-hub-creds' = ID de tes credentials Jenkins
+          // se logue avec 'docker-hub-creds'
           docker.withRegistry('', 'docker-hub-creds') {
             def img = docker.image("${DOCKERHUB_REPO}:${env.BUILD_NUMBER}")
             img.push()           // pousse :<build_number>
@@ -34,7 +34,11 @@ pipeline {
   }
 
   post {
-    success { echo "✅ pushed ${DOCKERHUB_REPO}:${env.BUILD_NUMBER} & latest" }
-    failure { echo "❌ Pipeline failed." }
+    success {
+      echo "✅ Image poussée : ${DOCKERHUB_REPO}:${env.BUILD_NUMBER} et latest"
+    }
+    failure {
+      echo "❌ Échec du pipeline."
+    }
   }
 }
