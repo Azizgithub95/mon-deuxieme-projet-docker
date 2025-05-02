@@ -35,7 +35,7 @@ pipeline {
 
   post {
     success {
-      echo "✅ Image poussée : ${DOCKERHUB_REPO}:${env.BUILD_NUMBER} et latest"
+      echo "✅ Image encore poussée : ${DOCKERHUB_REPO}:${env.BUILD_NUMBER} et latest"
     }
     failure {
       echo "❌ Échec du pipeline."
